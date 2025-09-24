@@ -7,7 +7,7 @@
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px}
     h1{font-size:22px;margin:0 0 12px}
-    .row{display:flex;gap:12px;align-items:center;margin:8px 0}
+    .row{display:flex;gap:12px;align-items:center;margin:8px 0;flex-wrap:wrap}
     textarea{width:100%;min-height:140px;padding:10px;font-size:15px}
     button{padding:10px 14px;border:0;border-radius:8px;background:#111;color:#fff;cursor:pointer}
     .muted{color:#666;font-size:13px}
@@ -19,6 +19,7 @@
     .line{border-top:1px solid #eee;margin:12px 0}
     .out{white-space:pre-wrap;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:12px}
     .pill{padding:4px 8px;border-radius:999px;background:#f1f1f1;margin-right:6px;display:inline-block;font-size:12px}
+    .ok{color:#196b19} .warn{color:#946200} .err{color:#b00000}
   </style>
 </head>
 <body>
@@ -28,6 +29,8 @@
   <div class="row">
     <button id="exHigh">Load High-risk Example</button>
     <button id="exLow">Load Low-risk Example</button>
+    <span id="apiLabel" class="muted"></span>
+    <span id="apiStatus" class="muted"></span>
   </div>
 
   <textarea id="hpi"></textarea>
@@ -35,7 +38,6 @@
   <div class="row">
     <button id="stream">Stream Demo</button>
     <button id="predict">Predict Once</button>
-    <span id="apiLabel" class="muted"></span>
   </div>
 
   <div class="line"></div>
@@ -49,7 +51,22 @@
     const elHpi = document.getElementById('hpi');
     const elOut = document.getElementById('result');
     const elApiLabel = document.getElementById('apiLabel');
+    const elApiStatus = document.getElementById('apiStatus');
+
     elApiLabel.textContent = `API: ${API}`;
+
+    // Quick health check on load (tries /health at same base)
+    (async () => {
+      try {
+        const base = API.replace(/\/predict\/?$/,'');
+        const r = await fetch(base + '/health', { method:'GET' });
+        if (!r.ok) throw new Error(`${r.status}`);
+        const j = await r.json();
+        elApiStatus.innerHTML = ` | <span class="ok">status: ${j.ok ? 'online' : 'unknown'}</span>`;
+      } catch {
+        elApiStatus.innerHTML = ` | <span class="err">status: unreachable</span>`;
+      }
+    })();
 
     document.getElementById('exHigh').onclick = () => {
       elHpi.value = "55-year-old with exertional chest pressure radiating to jaw, diaphoresis, smoker.";
@@ -67,7 +84,7 @@
         const data = await r.json();
         renderOne(text, data);
       } catch (err) {
-        elOut.textContent = `Request failed: ${err.message}\nHint: If this page is on GitHub Pages (HTTPS), the API must be HTTPS (ngrok/Render/etc).`;
+        elOut.textContent = `Request failed: ${err.message}\nHint: API must be reachable over HTTPS (ngrok/Render/etc).`;
       }
     };
 
