@@ -35,16 +35,21 @@
   <div class="row">
     <button id="stream">Stream Demo</button>
     <button id="predict">Predict Once</button>
-    <span class="muted">API: http://localhost:8000/predict</span>
+    <span id="apiLabel" class="muted"></span>
   </div>
 
   <div class="line"></div>
   <div id="result" class="out">Output will appear here…</div>
 
   <script>
-    const API = 'http://localhost:8000/predict';
+    // Default to your current ngrok; allow override via ?api=...
+    const DEFAULT_API = 'https://nakita-inscriptional-mumblingly.ngrok-free.dev/predict';
+    const API = new URLSearchParams(location.search).get('api') || DEFAULT_API;
+
     const elHpi = document.getElementById('hpi');
     const elOut = document.getElementById('result');
+    const elApiLabel = document.getElementById('apiLabel');
+    elApiLabel.textContent = `API: ${API}`;
 
     document.getElementById('exHigh').onclick = () => {
       elHpi.value = "55-year-old with exertional chest pressure radiating to jaw, diaphoresis, smoker.";
@@ -56,9 +61,14 @@
     document.getElementById('predict').onclick = async () => {
       const text = elHpi.value.trim();
       if (!text) return alert('Enter HPI text');
-      const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})});
-      const data = await r.json();
-      renderOne(text, data);
+      try {
+        const r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) });
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        const data = await r.json();
+        renderOne(text, data);
+      } catch (err) {
+        elOut.textContent = `Request failed: ${err.message}\nHint: If this page is on GitHub Pages (HTTPS), the API must be HTTPS (ngrok/Render/etc).`;
+      }
     };
 
     document.getElementById('stream').onclick = async () => {
@@ -69,16 +79,20 @@
       let sofar = "";
       for (let i=0;i<sents.length;i++){
         sofar = (sofar + " " + sents[i]).trim();
-        const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: sofar})});
-        const data = await r.json();
-        appendStep(i+1, sents[i], data);
-        await new Promise(res => setTimeout(res, 350));
+        try {
+          const r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: sofar}) });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+          const data = await r.json();
+          appendStep(i+1, sents[i], data);
+          await new Promise(res => setTimeout(res, 350));
+        } catch (err) {
+          elOut.textContent += `\nRequest failed: ${err.message}\nCheck your API URL.`;
+          break;
+        }
       }
     };
 
-    function badge(band){
-      return `<span class="badge ${band}">${band}</span>`;
-    }
+    function badge(band){ return `<span class="badge ${band}">${band}</span>`; }
 
     function renderOne(text, d){
       elOut.innerHTML =
