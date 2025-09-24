@@ -20,9 +20,6 @@
     .out{white-space:pre-wrap;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:12px}
     .pill{padding:4px 8px;border-radius:999px;background:#f1f1f1;margin-right:6px;display:inline-block;font-size:12px}
     .ok{color:#196b19} .warn{color:#946200} .err{color:#b00000}
-    .card{border:1px solid #eee;border-radius:10px;padding:10px;background:#fbfbfb}
-    input[type=text]{width:100%;padding:8px 10px;font-size:14px;border:1px solid #ccc;border-radius:8px}
-    .right{margin-left:auto}
   </style>
 </head>
 <body>
@@ -34,19 +31,6 @@
     <button id="exLow">Load Low-risk Example</button>
     <span id="apiLabel" class="muted"></span>
     <span id="apiStatus" class="muted"></span>
-    <button id="btnSettings" class="right">API Settings</button>
-  </div>
-
-  <div id="settings" class="card" style="display:none;margin:8px 0;">
-    <div class="muted" style="margin-bottom:6px;">
-      Set your API endpoint (e.g., <code>https://your-name.ngrok-free.dev/predict</code>). Saved in your browser.
-    </div>
-    <input id="apiInput" type="text" placeholder="https://.../predict">
-    <div class="row" style="margin-top:8px;">
-      <button id="btnSaveApi">Save</button>
-      <button id="btnTestApi">Test</button>
-      <span id="apiTestMsg" class="muted"></span>
-    </div>
   </div>
 
   <textarea id="hpi"></textarea>
@@ -60,81 +44,29 @@
   <div id="result" class="out">Output will appear here…</div>
 
   <script>
-    // ------- API URL resolution (no code edits needed) -------
-    function defaultApi() {
-      // If you run the page locally (python -m http.server), default to localhost
-      const isLocal =
-        location.hostname === 'localhost' ||
-        location.hostname === '127.0.0.1';
-      return isLocal ? 'http://127.0.0.1:8001/predict' : '';
-    }
-    const q = new URLSearchParams(location.search);
-    const fromQuery = q.get('api');                     // highest priority
-    const fromStorage = localStorage.getItem('apiUrl'); // user-saved
-    const fallback = defaultApi();                      // localhost if local
-    let API = (fromQuery || fromStorage || fallback || '').trim();
-
-    // Persist if provided via query
-    if (fromQuery) localStorage.setItem('apiUrl', API);
+    // Use your actual ngrok endpoint
+    const API = 'https://nakita-inscriptional-mumblingly.ngrok-free.dev/predict';
 
     const elHpi = document.getElementById('hpi');
     const elOut = document.getElementById('result');
     const elApiLabel = document.getElementById('apiLabel');
     const elApiStatus = document.getElementById('apiStatus');
-    const elSettings = document.getElementById('settings');
-    const elApiInput = document.getElementById('apiInput');
-    const elApiTestMsg = document.getElementById('apiTestMsg');
 
-    function setApiLabel() {
-      elApiLabel.textContent = API ? `API: ${API}` : 'API: not set';
-    }
-    setApiLabel();
+    elApiLabel.textContent = `API: ${API}`;
 
-    // Settings UI
-    document.getElementById('btnSettings').onclick = () => {
-      elSettings.style.display = elSettings.style.display === 'none' ? '' : 'none';
-      elApiInput.value = API;
-    };
-    document.getElementById('btnSaveApi').onclick = () => {
-      const val = elApiInput.value.trim();
-      if (!val) return alert('Enter an API URL like https://.../predict');
-      API = val;
-      localStorage.setItem('apiUrl', API);
-      setApiLabel();
-      elApiTestMsg.textContent = 'Saved.';
-      setTimeout(()=>elApiTestMsg.textContent='', 1200);
-      // re-run health check
-      checkHealth();
-    };
-    document.getElementById('btnTestApi').onclick = async () => {
-      const val = elApiInput.value.trim();
-      if (!val) return alert('Enter an API URL like https://.../predict');
-      await checkHealth(val);
-    };
-
-    // Health check
-    async function checkHealth(overrideApi) {
-      const apiToUse = (overrideApi || API || '').trim();
-      if (!apiToUse) {
-        elApiStatus.innerHTML = ' | <span class="err">status: unreachable (no API set)</span>';
-        return;
-      }
+    // Health check on load
+    (async () => {
       try {
-        const base = apiToUse.replace(/\/predict\/?$/, '');
+        const base = API.replace(/\/predict\/?$/,'');
         const r = await fetch(base + '/health', { method:'GET' });
         if (!r.ok) throw new Error(`${r.status}`);
         const j = await r.json();
         elApiStatus.innerHTML = ` | <span class="${j.ok ? 'ok' : 'warn'}">status: ${j.ok ? 'online' : 'unknown'}</span>`;
-        if (overrideApi) elApiTestMsg.textContent = 'Health OK.';
-      } catch (e) {
-        elApiStatus.innerHTML = ' | <span class="err">status: unreachable</span>';
-        if (overrideApi) elApiTestMsg.textContent = 'Health FAILED.';
+      } catch {
+        elApiStatus.innerHTML = ` | <span class="err">status: unreachable</span>`;
       }
-      if (overrideApi) setTimeout(()=>elApiTestMsg.textContent='', 1500);
-    }
-    checkHealth();
+    })();
 
-    // Examples
     document.getElementById('exHigh').onclick = () => {
       elHpi.value = "55-year-old with exertional chest pressure radiating to jaw, diaphoresis, smoker.";
     };
@@ -142,11 +74,9 @@
       elHpi.value = "22-year-old with sharp pleuritic chest pain, reproducible to palpation. No dyspnea, no diaphoresis.";
     };
 
-    // Predict-once
     document.getElementById('predict').onclick = async () => {
       const text = elHpi.value.trim();
       if (!text) return alert('Enter HPI text');
-      if (!API) return alert('Set API in “API Settings” first.');
       try {
         const r = await fetch(API, {
           method:'POST',
@@ -157,15 +87,13 @@
         const data = await r.json();
         renderOne(text, data);
       } catch (err) {
-        elOut.textContent = `Request failed: ${err.message}\nHint: API must be reachable over HTTPS (ngrok/Render/etc).`;
+        elOut.textContent = `Request failed: ${err.message}\nIs your API online at ${API}?`;
       }
     };
 
-    // Stream
     document.getElementById('stream').onclick = async () => {
       const full = elHpi.value.trim();
       if (!full) return alert('Enter HPI text');
-      if (!API) return alert('Set API in “API Settings” first.');
       elOut.textContent = "Streaming…\n";
       const sents = full.split(/(?<=[.!?])\s+/);
       let sofar = "";
@@ -182,7 +110,7 @@
           appendStep(i+1, sents[i], data);
           await new Promise(res => setTimeout(res, 350));
         } catch (err) {
-          elOut.textContent += `\nRequest failed: ${err.message}\nCheck your API URL.`;
+          elOut.textContent += `\nRequest failed: ${err.message}\nCheck ${API}.`;
           break;
         }
       }
