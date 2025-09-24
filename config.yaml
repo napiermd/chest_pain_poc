@@ -1,0 +1,28 @@
+label_rules:
+  acs_workup_any:
+    patterns:
+      - "(?i)troponin"
+      - "(?i)ekg|ecg"
+      - "(?i)heart\\s*score"
+      - "(?i)cardiology\\s*consult"
+      - "(?i)admit.*(acs|rule[- ]?out|nstemi|unstable angina)"
+      - "(?i)asa|aspirin"
+features:
+  keywords:
+    positive:
+      - "exertional"
+      - "radiat(es|ing)?\\s*(to\\s*)?(left\\s*)?(arm|jaw|neck)"
+      - "diaphoresis|sweating"
+      - "nausea|vomit"
+      - "short(ness)?\\s*of\\s*breath|dyspnea"
+      - "syncope|fainted|passed out"
+      - "known cad|prior mi|stent|cabg"
+      - "smoker|smoking"
+      - "htn|hypertension"
+      - "hld|hyperlipid"
+      - "diabetes|dm"
+    negative:
+      - "reproducible\\s*to\\s*palpation"
+      - "sharp\\s*pain\\s*worse\\s*with\\s*breathing|pleuritic"
+      - "positional|worse\\s*lying\\s*down|better\\s*leaning\\s*forward"
+      - "chest\\s*wall\\s*tenderness"

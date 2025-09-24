@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.DS_Store
+
+# Model artifacts
+models/
+*.joblib
+
+# Local data (keep toy_data.csv; don't commit your real samples)
+data/predictions_*.csv
+data/my_sample.csv
+data/real_*.csv
+
+# Logs
+*.log
+
+# Frontend (if you add a JS app later)
+node_modules/
+dist/

@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Chest Pain PoC — Realtime Risk</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px}
+    h1{font-size:22px;margin:0 0 12px}
+    .row{display:flex;gap:12px;align-items:center;margin:8px 0}
+    textarea{width:100%;min-height:140px;padding:10px;font-size:15px}
+    button{padding:10px 14px;border:0;border-radius:8px;background:#111;color:#fff;cursor:pointer}
+    .muted{color:#666;font-size:13px}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:600}
+    .HIGH{background:#ffe5e5;color:#b00000}
+    .MED{background:#fff5e0;color:#946200}
+    .LOW{background:#e7ffe7;color:#196b19}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+    .line{border-top:1px solid #eee;margin:12px 0}
+    .out{white-space:pre-wrap;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:12px}
+    .pill{padding:4px 8px;border-radius:999px;background:#f1f1f1;margin-right:6px;display:inline-block;font-size:12px}
+  </style>
+</head>
+<body>
+  <h1>Chest Pain PoC — Realtime Risk</h1>
+  <div class="muted">Type/paste an HPI below, then click “Stream Demo” or “Predict Once”.</div>
+
+  <div class="row">
+    <button id="exHigh">Load High-risk Example</button>
+    <button id="exLow">Load Low-risk Example</button>
+  </div>
+
+  <textarea id="hpi"></textarea>
+
+  <div class="row">
+    <button id="stream">Stream Demo</button>
+    <button id="predict">Predict Once</button>
+    <span class="muted">API: http://localhost:8000/predict</span>
+  </div>
+
+  <div class="line"></div>
+  <div id="result" class="out">Output will appear here…</div>
+
+  <script>
+    const API = 'http://localhost:8000/predict';
+    const elHpi = document.getElementById('hpi');
+    const elOut = document.getElementById('result');
+
+    document.getElementById('exHigh').onclick = () => {
+      elHpi.value = "55-year-old with exertional chest pressure radiating to jaw, diaphoresis, smoker.";
+    };
+    document.getElementById('exLow').onclick = () => {
+      elHpi.value = "22-year-old with sharp pleuritic chest pain, reproducible to palpation. No dyspnea, no diaphoresis.";
+    };
+
+    document.getElementById('predict').onclick = async () => {
+      const text = elHpi.value.trim();
+      if (!text) return alert('Enter HPI text');
+      const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})});
+      const data = await r.json();
+      renderOne(text, data);
+    };
+
+    document.getElementById('stream').onclick = async () => {
+      const full = elHpi.value.trim();
+      if (!full) return alert('Enter HPI text');
+      elOut.textContent = "Streaming…\n";
+      const sents = full.split(/(?<=[.!?])\s+/);
+      let sofar = "";
+      for (let i=0;i<sents.length;i++){
+        sofar = (sofar + " " + sents[i]).trim();
+        const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: sofar})});
+        const data = await r.json();
+        appendStep(i+1, sents[i], data);
+        await new Promise(res => setTimeout(res, 350));
+      }
+    };
+
+    function badge(band){
+      return `<span class="badge ${band}">${band}</span>`;
+    }
+
+    function renderOne(text, d){
+      elOut.innerHTML =
+`<div><strong>Result</strong> ${badge(d.band)}</div>
+<div class="mono">P(ACS workup)=${d.prob.toFixed(3)}  |  pos_kw=${d.pos_kw_hits}  neg_kw=${d.neg_kw_hits}</div>
+<div style="margin-top:8px;"><strong>What to ask next:</strong> ${d.ask_next.map(x=>`<span class="pill">${x}</span>`).join('') || '<span class="muted">none</span>'}</div>
+<div class="line"></div>
+<div><strong>Text</strong></div>
+<div>${escapeHtml(text)}</div>`;
+    }
+
+    function appendStep(i, sent, d){
+      elOut.innerHTML +=
+`[${String(i).padStart(2,'0')}] ${escapeHtml(sent)}
+  → P=${d.prob.toFixed(3)}  |  pos_kw=${d.pos_kw_hits}  neg_kw=${d.neg_kw_hits}  ${badge(d.band)} ${d.neg_kw_hits>0?'| lowering features noted':''}
+${d.band!=='HIGH' && d.ask_next.length ? '  ask next: ' + d.ask_next.slice(0,3).join(', ') : ''}
+\n`;
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+  </script>
+</body>
+</html>
